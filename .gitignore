@@ -1,0 +1,21 @@
+# NOTE:
+# Python bytecode and environments.
+__pycache__/
+
+*.pyc
+
+.venv/
+
+
+# NOTE:
+# Tool caches.
+.ruff_cache/
+
+.pytest_cache/
+
+.rumdl_cache/
+
+
+# NOTE:
+# macOS.
+.DS_Store
