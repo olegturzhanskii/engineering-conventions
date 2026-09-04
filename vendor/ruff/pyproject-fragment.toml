@@ -1,0 +1,39 @@
+# NOTE:
+# Portable pyproject.toml fragment.
+#
+# Paste these tables into a project's pyproject.toml if the project prefers a single manifest over a separate
+# ruff.toml.
+#
+# The two are equivalent; use one.
+#
+# Nothing here names a package, a path, a dependency, a line length, or a target version, because those are
+# project-local by definition.
+#
+# Ruff derives the target version from `project.requires-python` in the same manifest, so the linter and the manifest
+# agree by construction rather than by memory.
+
+[tool.ruff.lint]
+# NOTE:
+# Why each family is selected, and why TD, FIX, and COM812 are deliberately absent, is stated once in `ruff.toml`
+# beside this file.
+select = [
+  "A",
+  "B",
+  "C4",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PTH",
+  "RUF",
+  "SIM",
+  "UP",
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

@@ -1,0 +1,87 @@
+# NOTE:
+# Portable Ruff configuration.
+#
+# This file carries only what the shared engineering conventions require.
+#
+# Everything project-specific — line-length, src, exclusions, per-file ignores, first-party package names —
+# belongs in the project, not here.
+
+# NOTE:
+# `target-version` is deliberately absent.
+#
+# Ruff derives it from `project.requires-python` in the nearest `pyproject.toml`, including when the rules live in
+# this file instead, so the linter and the manifest agree by construction.
+#
+# A version written here would be the one line every adopting project has to remember to change, and forgetting it
+# applies another project's language rules in silence.
+
+[lint]
+# NOTE:
+# Each family is here because it mechanizes a rule the standard states.
+#
+# This is not a general-purpose "good rules" list, and a family that maps to no stated rule does not belong here.
+#
+#   E, F   pycodestyle and Pyflakes: the baseline.
+#   I      import sorting, so import order is not a review topic.
+#   UP     pyupgrade: the mechanical half of the modern-Python rule.
+#   B      bugbear, which carries B905 (zip without an explicit strict=).
+#   SIM    simplifications that do not change semantics.
+#   C4     comprehensions.
+#   N      pep8-naming.
+#   PTH    os.path call sites that have a pathlib equivalent.
+#   A      flake8-builtins: an import or parameter shadowing a builtin.
+#          This is the mechanical half of the import-collision rule, which is otherwise enforced by eye and
+#          therefore missed.
+#   RUF    Ruff's own checks, including RUF012 (a mutable class default that needs ClassVar) — the mutability
+#          rule's nearest mechanical form.
+select = [
+  "A",
+  "B",
+  "C4",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PTH",
+  "RUF",
+  "SIM",
+  "UP",
+]
+
+# WARN:
+# Three rule sets look relevant and are deliberately NOT selected.
+#
+# TD (flake8-todos) enforces a different taxonomy.
+#
+# TD001 treats every marker other than `TODO` as invalid, including `FIX` and `WARN`, and its vocabulary is not
+# configurable.
+#
+# Enabling it would contradict the comment convention.
+#
+# FIX (flake8-fixme) flags the *presence* of a marker.
+#
+# The convention allows markers and constrains their spelling; this is the opposite rule.
+#
+# COM812 (missing-trailing-comma) is redundant beside the formatter, and Ruff's own documentation recommends against
+# using them together.
+#
+# The trailing comma is enforced by `skip-magic-trailing-comma = false` below.
+
+[lint.isort]
+# WARN:
+# Do not set force-single-line.
+#
+# The convention is the parenthesized, one-name-per-line form, which this setting would collapse to one line per
+# import statement instead.
+split-on-trailing-comma = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+
+# NOTE:
+# This is the setting that enforces the call-site rule.
+#
+# With the magic trailing comma respected, a call written with a trailing comma stays exploded, one argument per line,
+# and `ruff format --check` fails if it is collapsed.
+skip-magic-trailing-comma = false
