@@ -1,0 +1,123 @@
+# NOTE:
+# This repository applies its own standard to itself.
+#
+# Ordering principle: identity, then what it needs, then the gates in the order `make verify` runs them.
+#
+# A reader following the Makefile finds each tool's configuration in the order the Makefile reaches it.
+
+[project]
+name = "engineering-conventions"
+version = "1.0.0"
+description = "A portable engineering standard for Python projects, and the tooling that checks it."
+license = "Apache-2.0"
+license-files = [
+  "LICENSE",
+  "NOTICE",
+]
+# NOTE:
+# 3.12 is the floor this repository's own constructs need: a newline inside an f-string replacement field, which the
+# call convention requires and which earlier versions reject.
+#
+# `@override` sets the same floor.
+#
+# Nothing here uses a 3.13 or 3.14 facility, so the requirement stays where the code actually puts it.
+requires-python = ">=3.12"
+
+# NOTE:
+# Every entry is a gate, and nothing here ships to a user.
+#
+# The floors are the versions the gate is verified against, listed alphabetically because no order among them means
+# anything.
+[dependency-groups]
+dev = [
+  "pytest>=9.1.1",
+  "ruff>=0.16.6",
+  "ty>=0.0.78",
+]
+
+# NOTE:
+# The rule selection below is `vendor/ruff/pyproject-fragment.toml`, copied unchanged so that it can be diffed against
+# what this repository publishes.
+#
+# Why each family is selected, and why three that look relevant are not, is stated once in `vendor/ruff/ruff.toml` and
+# is deliberately not repeated here.
+#
+# Anything marked project-local is this repository's own decision and is not part of the standard.
+
+[tool.ruff]
+# NOTE:
+# Project-local.
+#
+# Python code and comments stop strictly below column 119, so 118 is the last column that may hold a symbol.
+#
+# Prose is narrower and is not set here: docstrings and Markdown stop below column 79, which no formatter setting
+# expresses, so `check_conventions.py` measures them instead.
+line-length = 118
+
+# NOTE:
+# Project-local: source roots, so import sorting can tell first-party from third-party.
+#
+# The vendored tools are listed because they are this repository's own code, even though a consuming project copies
+# them.
+src = [
+  "vendor/tools",
+  "sandbox/src",
+  "sandbox/tests",
+  "sandbox/tools",
+]
+
+# WARN:
+# Project-local: `sandbox/counterexamples/` breaks the conventions on purpose.
+#
+# Correcting those files would destroy what they teach.
+#
+# See STANDARD.md §1, "Normative and demonstrative material," and sandbox/counterexamples/README.md.
+extend-exclude = [
+  "**/counterexamples",
+]
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "B",
+  "C4",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PTH",
+  "RUF",
+  "SIM",
+  "UP",
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# NOTE:
+# `ty` resolves imports from these roots.
+#
+# The sandbox package lives under `sandbox/src`, and without this entry the type checker cannot see `library.*` even
+# though pytest can, because pytest's own `pythonpath` is not a general module-discovery setting.
+[tool.ty.environment]
+root = [
+  "vendor/tools",
+  "sandbox/src",
+  "sandbox/tests",
+  "sandbox/tools",
+]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config"
+pythonpath = [
+  "sandbox/src",
+  "sandbox",
+]
+testpaths = [
+  "sandbox/tests",
+]
