@@ -1,0 +1,118 @@
+# NOTE:
+# Ordering principle: identity, then what the project needs, then the gates in the order `make verify` runs them, then
+# how it is built.
+#
+# A reader following the Makefile finds each tool's configuration in the order the Makefile reaches it.
+
+[project]
+name = "sandbox"
+version = "1.0.0"
+description = "A miniature project that demonstrates adopting the engineering conventions."
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1.1",
+  "ruff>=0.16.5",
+  "ty>=0.0.76",
+]
+
+# NOTE:
+# Everything from here to the pytest table is the vendored rule set from `vendor/ruff/pyproject-fragment.toml`,
+# followed by this project's own settings.
+#
+# The vendored half is copied unchanged so that a reviewer can diff it against the version this project claims to
+# follow.
+#
+# The project-local half is marked.
+
+[tool.ruff]
+# NOTE:
+# Project-local from here.
+#
+# Python code and comments stop strictly below column 119, so 118 is the last column that may hold a symbol.
+line-length = 118
+
+src = [
+  "src",
+  "tests",
+]
+
+# WARN:
+# Two exclusions, for two different reasons.
+#
+# `counterexamples/` holds files that violate the conventions on purpose.
+#
+# They are teaching material, not oversights, and correcting them would destroy what they demonstrate.
+#
+# See counterexamples/README.md.
+#
+# `tools/` holds a vendored copy of the checker.
+#
+# Formatting it here would rewrite it at this project's line length and destroy the diff against the version this
+# project follows.
+#
+# It is checked upstream, not here.
+extend-exclude = [
+  "**/counterexamples",
+  "tools",
+]
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "B",
+  "C4",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PTH",
+  "RUF",
+  "SIM",
+  "UP",
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# NOTE:
+# `ty` resolves imports from these roots, because pytest's own `pythonpath` is not a general module-discovery setting
+# and the type checker cannot see `library.*` without them.
+[tool.ty.environment]
+root = [
+  "src",
+  "tests",
+]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config"
+pythonpath = [
+  "src",
+  ".",
+]
+testpaths = [
+  "tests",
+]
+
+[build-system]
+requires = [
+  "hatchling",
+]
+build-backend = "hatchling.build"
+
+# WARN:
+# The distribution is named for the directory and the package it ships is named for the domain, so the backend's
+# default file selection finds nothing and the build fails outright.
+#
+# Naming the package here is the fix; renaming one of the two to match the other would be the same fix applied to the
+# wrong end.
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/library",
+]
