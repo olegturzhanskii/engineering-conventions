@@ -5,7 +5,7 @@ this repository is not large enough to earn that.
 
 ## What the version identifies
 
-`v1.0.0` identifies **the standard**.
+`v1.0.1` identifies **the standard**.
 
 `STANDARD.md` §27 states it, `CHANGELOG.md` records how it got there, and
 `check_conventions.py --version` prints the version its rules implement.

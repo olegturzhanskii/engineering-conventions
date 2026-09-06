@@ -32,7 +32,7 @@ The version reference belongs in the project's contributor documentation, in
 one line:
 
 ```markdown
-This project conforms to the engineering conventions standard, v1.0.0.
+This project conforms to the engineering conventions standard, v1.0.1.
 ```
 
 ## What each file is for

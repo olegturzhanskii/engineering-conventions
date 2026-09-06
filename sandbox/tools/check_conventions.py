@@ -106,7 +106,7 @@ from typing import (
 #
 # A vendored copy states which standard it came from, so a project can report conformance and a reviewer can tell a
 # stale copy from a local change.
-STANDARD_VERSION: Final = "1.0.0"
+STANDARD_VERSION: Final = "1.0.1"
 
 # NOTE:
 # Column boundaries from the standard's width section.

@@ -434,10 +434,10 @@ a one-sentence paragraph makes an unsupported claim obvious.
   A string a test asserts is returned byte-identical is data.
 - **Identifiers bound by an external API**, which keep the library's spelling.
 - **Structured material.**
-  A commit subject, a heading, a table cell, a list item, a colon-introduced
-  enumeration, and a conventional formula such as a copyright line may each
-  hold more than one sentence, because splitting them would move a sentence
-  out of the structure holding it.
+  A commit or tag subject, a heading, a table cell, a list item, a
+  colon-introduced enumeration, and a conventional formula such as a copyright
+  line may each hold more than one sentence, because splitting them would move
+  a sentence out of the structure holding it.
 - **Code.**
   Source is not made of paragraphs, and a control-flow header, a
   signature, and a call are governed by the rules for code.
@@ -1765,7 +1765,7 @@ The one-sentence rule does not apply to it and it takes no terminal period.
 
 ## 27. Version
 
-This is the standard at **v1.0.0**.
+This is the standard at **v1.0.1**.
 
 Changes are recorded in `CHANGELOG.md`, and a project states the version it
 conforms to so that a reviewer can tell a violation from a version gap.

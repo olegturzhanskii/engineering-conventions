@@ -11,6 +11,31 @@ with the following meaning.
 
 **Patch**: wording, an example, or an enforcement file with no rule change.
 
+## [1.0.1]
+
+### Changed
+
+- §7's structured-material list now reads "a commit or tag subject" where it
+  read "a commit subject."
+  An annotated tag's first line is a subject in exactly the sense the bullet's
+  own rationale describes — splitting it would move a sentence out of the
+  structure holding it — and the enumeration simply had not named it.
+  Nothing else about the prose rules moves: a commit body, a tag annotation's
+  body, and release notes remain prose, and one sentence per paragraph
+  continues to govern all three.
+
+### Why this is a patch
+
+A project that conformed to 1.0.0 still conforms.
+
+The change broadens an exemption rather than adding or tightening a rule, so
+no conforming project becomes non-conforming, and nothing became checkable —
+the checker cannot inspect a tag message at all.
+
+A reviewer could reasonably have argued for a minor bump on the grounds that
+the rule's reach changed; this repository's own test in `docs/versioning.md` is
+whether a project that conformed yesterday still conforms today, and it does.
+
 ## [1.0.0]
 
 The initial release.
