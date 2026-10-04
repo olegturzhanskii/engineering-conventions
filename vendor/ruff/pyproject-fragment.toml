@@ -14,8 +14,8 @@
 
 [tool.ruff.lint]
 # NOTE:
-# Why each family is selected, and why TD, FIX, and COM812 are deliberately absent, is stated once in `ruff.toml`
-# beside this file.
+# Why each family is selected, and why TD, FIX, and COM812 are deliberately absent, is stated once in the standard's
+# `vendor/ruff/ruff.toml`.
 select = [
   "A",
   "B",

@@ -18,17 +18,15 @@ dev = [
 ]
 
 # NOTE:
-# Everything from here to the pytest table is the vendored rule set from `vendor/ruff/pyproject-fragment.toml`,
-# followed by this project's own settings.
+# Everything from here to the pytest table is Ruff's configuration: the tables of
+# `vendor/ruff/pyproject-fragment.toml`, copied unchanged, beside this project's own settings.
 #
-# The vendored half is copied unchanged so that a reviewer can diff it against the version this project claims to
-# follow.
-#
-# The project-local half is marked.
+# Every project-local setting is marked where it is added, so a reviewer can diff the rest against the version this
+# project claims to follow.
 
 [tool.ruff]
 # NOTE:
-# Project-local from here.
+# Project-local: the fragment sets nothing in this table.
 #
 # Python code and comments stop strictly below column 119, so 118 is the last column that may hold a symbol.
 line-length = 118
@@ -59,6 +57,9 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
+# NOTE:
+# Why each family is selected, and why TD, FIX, and COM812 are deliberately absent, is stated once in the standard's
+# `vendor/ruff/ruff.toml`.
 select = [
   "A",
   "B",
