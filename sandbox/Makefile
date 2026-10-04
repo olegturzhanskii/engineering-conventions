@@ -6,9 +6,9 @@
 # A bare `ruff` or `pytest` resolves to whatever the shell happens to offer, and a run against a global Ruff and ty
 # below the floors this manifest declares reports green while proving nothing.
 #
-# `--frozen` also fails when `uv.lock` no longer describes the manifest, so the gate cannot pass against an
-# environment the lock does not describe.
-RUN := uv run --frozen
+# `--locked` also fails when `uv.lock` no longer describes the manifest, so the gate cannot pass on a lock that is out
+# of date.
+RUN := uv run --locked
 
 # NOTE:
 # The checker runs through `$(RUN)` for the interpreter, not for a package.
@@ -23,7 +23,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 setup: ## Create the environment this gate runs in
-	uv sync --frozen
+	uv sync --locked
 
 format: ## Apply formatting
 	$(RUN) ruff format .
@@ -39,7 +39,7 @@ typecheck: ## Run the type checker
 
 conventions: ## Run the portable checker, positive control first
 	$(RUN) python3 tools/check_conventions.py --self-test
-	$(RUN) python3 tools/check_conventions.py README.md counterexamples/README.md src tests
+	$(RUN) python3 tools/check_conventions.py README.md counterexamples/README.md src tests Makefile
 
 test: ## Run the tests
 	$(RUN) pytest
