@@ -60,6 +60,7 @@ from ast import (
     parse as parse_source,
 )
 from collections.abc import (
+    Callable,
     Mapping,
     Sequence,
 )
@@ -68,12 +69,19 @@ from collections.abc import (
 )
 from dataclasses import (
     dataclass,
+    replace,
 )
 from fnmatch import (
     fnmatch,
 )
 from itertools import (
     pairwise,
+)
+from json import (
+    JSONDecodeError,
+)
+from json import (
+    loads as parse_json,
 )
 from pathlib import (
     Path,
@@ -106,7 +114,7 @@ from typing import (
 #
 # A vendored copy states which standard it came from, so a project can report conformance and a reviewer can tell a
 # stale copy from a local change.
-STANDARD_VERSION: Final = "1.0.1"
+STANDARD_VERSION: Final = "1.1.0"
 
 # NOTE:
 # Column boundaries from the standard's width section.
@@ -183,17 +191,46 @@ DEFAULT_NAMESPACE_MODULES: Final = frozenset(
 )
 
 # NOTE:
-# The two languages this program reads.
+# The two languages this program reads, and the notebook that holds both.
 #
-# Everything else in a repository is left to the tool that owns it, and a file named on the command line is read by
-# its suffix rather than by a guess at its content.
+# Everything else in a repository is left to the tool that owns it, except the two kinds of file §6 reaches, and a
+# file named on the command line is read by its suffix or its name rather than by a guess at its content.
 MARKDOWN_SUFFIX: Final = ".md"
+
+NOTEBOOK_SUFFIX: Final = ".ipynb"
 
 PYTHON_SUFFIX: Final = ".py"
 
+# NOTE:
+# The record §6 asks for of every downloaded artifact, in the format `sha256sum --check` reads.
+CHECKSUM_MANIFEST: Final = "SHA256SUMS"
+
+# NOTE:
+# The files that may download a tool: workflow and Compose definitions, shell scripts, and the files a build tool or a
+# container build reads.
+#
+# `Dockerfile.dev` and its like are matched by the part of the name before the first dot.
+PIPELINE_SUFFIXES: Final = (
+    ".sh",
+    ".yaml",
+    ".yml",
+)
+
+PIPELINE_NAMES: Final = frozenset(
+    {
+        "Containerfile",
+        "Dockerfile",
+        "GNUmakefile",
+        "Makefile",
+        "makefile",
+    },
+)
+
 SUFFIXES: Final = (
     MARKDOWN_SUFFIX,
+    NOTEBOOK_SUFFIX,
     PYTHON_SUFFIX,
+    *PIPELINE_SUFFIXES,
 )
 
 # NOTE:
@@ -206,6 +243,7 @@ SKIPPED_DIRECTORIES: Final = frozenset(
     {
         ".git",
         ".hg",
+        ".ipynb_checkpoints",
         ".mypy_cache",
         ".pytest_cache",
         ".ruff_cache",
@@ -359,13 +397,27 @@ MARKER_LIKE: Final = compile_pattern(
 # NOTE:
 # Markdown syntax that the width rule reads through rather than counts.
 #
-# A link is judged by its label and emphasis is judged by the words inside it, which is what a reader sees.
+# A link is judged by its label, an image by its alternative text, emphasis by the words inside it, and a code span by
+# everything between its backticks, underscores included, which is what a reader sees.
+IMAGE: Final = compile_pattern(
+    pattern=r"!\[([^\]]*)\]\([^)]*\)",
+)
+
 LINK: Final = compile_pattern(
     pattern=r"\[([^\]]*)\]\([^)]*\)",
 )
 
+# NOTE:
+# A code span opens and closes with the same run of backticks, so a span that holds a backtick uses a longer run.
+RENDERED_CODE_SPAN: Final = compile_pattern(
+    pattern=r"(`+)(.+?)\1",
+)
+
+# NOTE:
+# Emphasis outside a code span: every asterisk, and an underscore only where it opens or closes a word, because one
+# inside a word, as in a snake_case name, is printed rather than read as emphasis.
 EMPHASIS: Final = compile_pattern(
-    pattern=r"[*_`]+",
+    pattern=r"\*+|(?<![0-9A-Za-z])_+|_+(?![0-9A-Za-z])",
 )
 
 SENTENCE_END: Final = compile_pattern(
@@ -404,6 +456,52 @@ TOOL_COMMENTS: Final = (
     "type:",
 )
 
+# NOTE:
+# One line of a `SHA256SUMS` file as `sha256sum` writes it: the digest in lowercase, then a space and either a second
+# space or the asterisk of binary mode, then the file name.
+CHECKSUM_LINE: Final = compile_pattern(
+    pattern=r"(?P<digest>[0-9a-f]{64}) [ *](?P<name>\S.*)",
+)
+
+# NOTE:
+# Where a command starts: the start of a line or of a list item, after a shell operator or a command substitution, or
+# after `RUN`, `run:`, `exec`, or `sudo`.
+#
+# A package named `wget` in an install command is a word in the middle of a command, not a command.
+COMMAND_START: Final = r"(?:^\s*-?|[;&|(`]|\$\(|\b(?:RUN|exec|sudo)\b|\brun:)\s*"
+
+# NOTE:
+# A command that writes a download to a file: curl told where to write, wget not told to write to standard output, or
+# a GitHub release download.
+#
+# A health check that reads a URL and discards the answer is not a download, and is left alone.
+DOWNLOADS: Final = (
+    compile_pattern(
+        pattern=rf"{COMMAND_START}curl\b.*\s(-[A-Za-z]*[oO]|--output|--remote-name)\b",
+    ),
+    compile_pattern(
+        pattern=rf"{COMMAND_START}wget\b(?!.*(\s-[A-Za-z]*O\s*-(\s|$)|--output-document=?-|--spider))",
+    ),
+    compile_pattern(
+        pattern=r"\bgh\s+release\s+download\b",
+    ),
+)
+
+# NOTE:
+# A digest check that fails on a mismatch, with either of the two tools that read the `SHA256SUMS` format.
+CHECKSUM_VERIFICATION: Final = compile_pattern(
+    pattern=r"\b(sha256sum|shasum\s+(-a\s*256|--algorithm[\s=]256))\b.*\s(-[A-Za-z]*c|--check)\b",
+)
+
+# NOTE:
+# The cell metadata in which Jupyter and its extensions record when a cell ran.
+TIMING_KEYS: Final = frozenset(
+    {
+        "ExecuteTime",
+        "execution",
+    },
+)
+
 VIOLATION: Final = "violation"
 
 CANDIDATE: Final = "candidate"
@@ -431,6 +529,9 @@ class Finding:
 
     `kind` is `VIOLATION` when the check proves it and `CANDIDATE` when a
     person must decide.
+
+    `cell` is the notebook cell the finding came from, counted from one, and
+    `None` for every other file.
     """
 
     path: Path
@@ -442,6 +543,8 @@ class Finding:
     kind: str
 
     message: str
+
+    cell: int | None = None
 
     def render(
         self,
@@ -461,7 +564,9 @@ class Finding:
 
         label = "candidate" if self.kind == CANDIDATE else "violation"
 
-        return f"{shown}:{self.line}: [{self.check}/{label}] {self.message}"
+        where = f"{shown}:{self.line}" if self.cell is None else f"{shown}:cell {self.cell}:{self.line}"
+
+        return f"{where}: [{self.check}/{label}] {self.message}"
 
 
 def _violation(
@@ -2408,16 +2513,51 @@ def _rendered(
     """
     Return `line` approximately as a reader meets it.
 
-    Link syntax collapses to its label and emphasis markers disappear, which
-    is the difference between the width written and the width read.
+    An image collapses to its alternative text and a link to its label,
+    emphasis markers disappear, and a code span loses its backticks but keeps
+    every character between them, which is the difference between the width
+    written and the width read.
     """
 
-    return EMPHASIS.sub(
-        repl="",
-        string=LINK.sub(
+    labeled = LINK.sub(
+        repl=r"\1",
+        string=IMAGE.sub(
             repl=r"\1",
             string=line,
         ),
+    )
+
+    pieces: list[str] = []
+
+    position = 0
+
+    for span in RENDERED_CODE_SPAN.finditer(
+        string=labeled,
+    ):
+        pieces.append(
+            EMPHASIS.sub(
+                repl="",
+                string=labeled[position : span.start()],
+            ),
+        )
+
+        pieces.append(
+            span.group(
+                2,
+            ),
+        )
+
+        position = span.end()
+
+    pieces.append(
+        EMPHASIS.sub(
+            repl="",
+            string=labeled[position:],
+        ),
+    )
+
+    return "".join(
+        pieces,
     ).rstrip()
 
 
@@ -2612,6 +2752,452 @@ def _paragraph_findings(
 
 # NOTE:
 # Ordered as the standard orders its sections, so a reader following one finds the other.
+def _check_checksums(
+    path: Path,
+    source: str,
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Reports a `SHA256SUMS` line that `sha256sum --check` would not read as one
+    digest of one named file, and a file named twice.
+    """
+
+    out: list[Finding] = []
+
+    named: set[str] = set()
+
+    for (
+        number,
+        line,
+    ) in enumerate(
+        iterable=source.splitlines(),
+        start=1,
+    ):
+        if not line.strip():
+            continue
+
+        match = CHECKSUM_LINE.fullmatch(
+            string=line,
+        )
+
+        if match is None:
+            out.append(
+                _violation(
+                    path,
+                    number,
+                    "checksums",
+                    "not a sha256sum line: sixty-four lowercase hexadecimal digits, two spaces, and a file name",
+                ),
+            )
+
+            continue
+
+        name = match.group(
+            "name",
+        )
+
+        if name in named:
+            out.append(
+                _violation(
+                    path,
+                    number,
+                    "checksums",
+                    f"{name} is recorded twice, so the record does not say which digest is the right one",
+                ),
+            )
+
+        named.add(
+            name,
+        )
+
+    return tuple(
+        out,
+    )
+
+
+def _check_downloads(
+    path: Path,
+    source: str,
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Reports a download in a file that never checks a digest against
+    `SHA256SUMS`.
+
+    The check reads lines, not a shell: a download checked in another file is
+    a false positive, which is why these findings are candidates.
+    """
+
+    if (
+        CHECKSUM_MANIFEST in source
+        and CHECKSUM_VERIFICATION.search(
+            string=source,
+        )
+        is not None
+    ):
+        return ()
+
+    return tuple(
+        _candidate(
+            path,
+            number,
+            "downloads",
+            f"a download this file never checks against {CHECKSUM_MANIFEST}: pin the release, record its digest, and "
+            "check it before use",
+        )
+        for (
+            number,
+            line,
+        ) in enumerate(
+            iterable=source.splitlines(),
+            start=1,
+        )
+        if not line.lstrip().startswith(
+            "#",
+        )
+        and any(
+            download.search(
+                string=line,
+            )
+            is not None
+            for download in DOWNLOADS
+        )
+    )
+
+
+def _check_notebooks(
+    path: Path,
+    cells: Sequence[Mapping[str, object]],
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Reports a notebook whose execution counts show it was not run top to
+    bottom in one session, and a cell that records when it ran.
+    """
+
+    out: list[Finding] = []
+
+    code = tuple(
+        (
+            number,
+            cell,
+        )
+        for (
+            number,
+            cell,
+        ) in enumerate(
+            iterable=cells,
+            start=1,
+        )
+        if cell.get(
+            "cell_type",
+        )
+        == "code"
+    )
+
+    ran = any(
+        cell.get(
+            "execution_count",
+        )
+        is not None
+        or bool(
+            cell.get(
+                "outputs",
+            ),
+        )
+        for (
+            _,
+            cell,
+        ) in code
+    )
+
+    for (
+        expected,
+        (
+            number,
+            cell,
+        ),
+    ) in enumerate(
+        iterable=code if ran else (),
+        start=1,
+    ):
+        count = cell.get(
+            "execution_count",
+        )
+
+        if count != expected:
+            out.append(
+                replace(
+                    _violation(
+                        path,
+                        1,
+                        "notebooks",
+                        f"execution count {count} where a run from the top gives {expected}: run it top to bottom",
+                    ),
+                    cell=number,
+                ),
+            )
+
+            break
+
+    for (
+        number,
+        cell,
+    ) in enumerate(
+        iterable=cells,
+        start=1,
+    ):
+        metadata = cell.get(
+            "metadata",
+        )
+
+        if isinstance(
+            metadata,
+            dict,
+        ) and TIMING_KEYS & set(
+            metadata,
+        ):
+            out.append(
+                replace(
+                    _violation(
+                        path,
+                        1,
+                        "notebooks",
+                        "the cell records when it ran, which describes the person rather than the notebook",
+                    ),
+                    cell=number,
+                ),
+            )
+
+    return tuple(
+        out,
+    )
+
+
+def _cells(
+    notebook: object,
+    /,
+) -> tuple[Mapping[str, object], ...]:
+    """
+    Return the cells of a parsed notebook, or none when it holds no cell list.
+    """
+
+    if not isinstance(
+        notebook,
+        dict,
+    ):
+        return ()
+
+    cells = notebook.get(
+        "cells",
+    )
+
+    if not isinstance(
+        cells,
+        list,
+    ):
+        return ()
+
+    return tuple(
+        cell
+        for cell in cells
+        if isinstance(
+            cell,
+            dict,
+        )
+    )
+
+
+def _cell_text(
+    cell: Mapping[str, object],
+    /,
+) -> str:
+    """
+    Return a cell's source as one string, in either of the two forms a
+    notebook may store it.
+    """
+
+    source = cell.get(
+        "source",
+    )
+
+    if isinstance(
+        source,
+        list,
+    ):
+        return "".join(
+            str(
+                object=line,
+            )
+            for line in source
+        )
+
+    if isinstance(
+        source,
+        str,
+    ):
+        return source
+
+    return ""
+
+
+def _text_findings(
+    path: Path,
+    source: str,
+    applicable: AbstractSet[str],
+    table: Mapping[str, Callable[[Path, str], tuple[Finding, ...]]],
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Run the enabled checks of `table` on one file or cell read as text.
+    """
+
+    return tuple(
+        finding
+        for (
+            name,
+            text_check,
+        ) in table.items()
+        if name in applicable
+        for finding in text_check(
+            path,
+            source,
+        )
+    )
+
+
+def _cell_findings(
+    path: Path,
+    cell: Mapping[str, object],
+    applicable: AbstractSet[str],
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Run the Python checks on a code cell and the Markdown checks on a Markdown
+    cell; a raw cell is left alone, as a notebook format leaves it.
+    """
+
+    text = _cell_text(
+        cell,
+    )
+
+    kind = cell.get(
+        "cell_type",
+    )
+
+    if kind == "markdown":
+        return _text_findings(
+            path,
+            text,
+            applicable,
+            MARKDOWN_CHECKS,
+        )
+
+    if kind != "code":
+        return ()
+
+    try:
+        tree = parse_source(
+            source=text,
+        )
+
+    except SyntaxError as error:
+        return (
+            _violation(
+                path,
+                error.lineno or 0,
+                "parse",
+                str(
+                    object=error,
+                ),
+            ),
+        )
+
+    return tuple(
+        finding
+        for (
+            name,
+            check,
+        ) in CHECKS.items()
+        if name in applicable
+        for finding in check(
+            path,
+            tree,
+            text,
+        )
+    )
+
+
+def _notebook_findings(
+    path: Path,
+    source: str,
+    applicable: AbstractSet[str],
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Check each cell in its own language, then the notebook as a whole.
+
+    Outputs are generated material and are never read, and every finding names
+    the cell it came from.
+    """
+
+    try:
+        notebook = parse_json(
+            s=source,
+        )
+
+    except JSONDecodeError as error:
+        return (
+            _violation(
+                path,
+                error.lineno,
+                "parse",
+                f"not a notebook: {error.msg}",
+            ),
+        )
+
+    cells = _cells(
+        notebook,
+    )
+
+    out: list[Finding] = []
+
+    for (
+        number,
+        cell,
+    ) in enumerate(
+        iterable=cells,
+        start=1,
+    ):
+        out.extend(
+            replace(
+                finding,
+                cell=number,
+            )
+            for finding in _cell_findings(
+                path,
+                cell,
+                applicable,
+            )
+        )
+
+    for (
+        name,
+        notebook_check,
+    ) in NOTEBOOK_CHECKS.items():
+        if name in applicable:
+            out.extend(
+                notebook_check(
+                    path,
+                    cells,
+                ),
+            )
+
+    return tuple(
+        out,
+    )
+
+
 CHECKS: Final = MappingProxyType(
     mapping={
         "imports": _check_imports,
@@ -2637,10 +3223,35 @@ MARKDOWN_CHECKS: Final = MappingProxyType(
     },
 )
 
+# NOTE:
+# A notebook's cells are checked by the two tables above; this one holds what only the notebook as a whole can show.
+NOTEBOOK_CHECKS: Final = MappingProxyType(
+    mapping={
+        "notebooks": _check_notebooks,
+    },
+)
+
+# NOTE:
+# The two checks §6 asks for, one for the record of digests and one for the files that download.
+CHECKSUM_CHECKS: Final = MappingProxyType(
+    mapping={
+        "checksums": _check_checksums,
+    },
+)
+
+PIPELINE_CHECKS: Final = MappingProxyType(
+    mapping={
+        "downloads": _check_downloads,
+    },
+)
+
 ALL_CHECKS: Final = frozenset(
     {
         *CHECKS,
         *MARKDOWN_CHECKS,
+        *NOTEBOOK_CHECKS,
+        *CHECKSUM_CHECKS,
+        *PIPELINE_CHECKS,
     },
 )
 
@@ -2762,17 +3373,27 @@ def _source_files(
     trees.
     """
 
+    patterns = (
+        *(f"*{suffix}" for suffix in SUFFIXES),
+        CHECKSUM_MANIFEST,
+        *sorted(
+            PIPELINE_NAMES,
+        ),
+    )
+
     return tuple(
         sorted(
-            found
-            for suffix in SUFFIXES
-            for found in directory.rglob(
-                pattern=f"*{suffix}",
-            )
-            if not SKIPPED_DIRECTORIES
-            & set(
-                found.parts,
-            )
+            {
+                found
+                for pattern in patterns
+                for found in directory.rglob(
+                    pattern=pattern,
+                )
+                if not SKIPPED_DIRECTORIES
+                & set(
+                    found.parts,
+                )
+            },
         ),
     )
 
@@ -2854,17 +3475,55 @@ def _run(
             continue
 
         if path.suffix == MARKDOWN_SUFFIX:
-            for (
-                name,
-                markdown_check,
-            ) in MARKDOWN_CHECKS.items():
-                if name in applicable:
-                    out.extend(
-                        markdown_check(
-                            path,
-                            source,
-                        ),
-                    )
+            out.extend(
+                _text_findings(
+                    path,
+                    source,
+                    applicable,
+                    MARKDOWN_CHECKS,
+                ),
+            )
+
+            continue
+
+        if path.suffix == NOTEBOOK_SUFFIX:
+            out.extend(
+                _notebook_findings(
+                    path,
+                    source,
+                    applicable,
+                ),
+            )
+
+            continue
+
+        if path.name == CHECKSUM_MANIFEST:
+            out.extend(
+                _text_findings(
+                    path,
+                    source,
+                    applicable,
+                    CHECKSUM_CHECKS,
+                ),
+            )
+
+            continue
+
+        if (
+            path.suffix in PIPELINE_SUFFIXES
+            or path.name.partition(
+                ".",
+            )[0]
+            in PIPELINE_NAMES
+        ):
+            out.extend(
+                _text_findings(
+                    path,
+                    source,
+                    applicable,
+                    PIPELINE_CHECKS,
+                ),
+            )
 
             continue
 
@@ -2997,6 +3656,41 @@ CONTROLS: Final = MappingProxyType(
             "markdown",
             "# Title\n\nOne claim here. A second claim here.\n",
         ),
+        "notebooks/execution-order": (
+            "notebooks",
+            '{"cells": ['
+            '{"cell_type": "code", "execution_count": 2, "metadata": {}, "outputs": [], "source": ["pass\\n"]}, '
+            '{"cell_type": "code", "execution_count": 1, "metadata": {}, "outputs": [], "source": ["pass\\n"]}'
+            '], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}',
+        ),
+        "notebooks/timing": (
+            "notebooks",
+            '{"cells": ['
+            '{"cell_type": "code", "execution_count": null, "outputs": [], "source": ["pass\\n"], '
+            '"metadata": {"execution": {"iopub.execute_input": "an instant"}}}'
+            '], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}',
+        ),
+        "checksums/format": (
+            "checksums",
+            "ABC123  tool.tar.gz\n",
+        ),
+        "downloads/unverified": (
+            "downloads",
+            "curl -sSfL -o tool.tar.gz https://example.com/tool.tar.gz\n",
+        ),
+    },
+)
+
+# NOTE:
+# The file a control is written to, because this program reads a file by its suffix or its name.
+#
+# A check not named here reads Python.
+CONTROL_FILES: Final = MappingProxyType(
+    mapping={
+        "markdown": f"probe{MARKDOWN_SUFFIX}",
+        "notebooks": f"probe{NOTEBOOK_SUFFIX}",
+        "checksums": CHECKSUM_MANIFEST,
+        "downloads": "probe.sh",
     },
 )
 
@@ -3014,7 +3708,7 @@ def _self_test() -> int:
     """
 
     from tempfile import (
-        NamedTemporaryFile,
+        TemporaryDirectory,
     )
 
     global EXCLUDED, NAMESPACE_MODULES, PROJECT_ROOT
@@ -3064,44 +3758,40 @@ def _self_test() -> int:
             snippet,
         ),
     ) in CONTROLS.items():
-        suffix = MARKDOWN_SUFFIX if name in MARKDOWN_CHECKS else PYTHON_SUFFIX
-
-        with NamedTemporaryFile(
-            mode="w",
-            suffix=suffix,
-            delete=False,
-        ) as handle:
-            handle.write(
-                snippet,
-            )
-
+        with TemporaryDirectory() as directory:
             probe = Path(
-                handle.name,
+                directory,
+            ) / CONTROL_FILES.get(
+                name,
+                f"probe{PYTHON_SUFFIX}",
             )
 
-        # NOTE:
-        # One check runs, so any finding came from it.
-        #
-        # A check may label its findings by rule rather than by check name — `comments` reports both `markers` and
-        # `widths` — so matching on the label would test the label.
-        found = tuple(
-            item
-            for item in _run(
-                (probe,),
-                frozenset(
-                    {
-                        name,
-                    },
-                ),
+            probe.write_text(
+                data=snippet,
+                encoding="utf-8",
             )
-            if item.check
-            not in {
-                "parse",
-                "unreadable",
-            }
-        )
 
-        probe.unlink()
+            # NOTE:
+            # One check runs, so any finding came from it.
+            #
+            # A check may label its findings by rule rather than by check name — `comments` reports both `markers` and
+            # `widths` — so matching on the label would test the label.
+            found = tuple(
+                item
+                for item in _run(
+                    (probe,),
+                    frozenset(
+                        {
+                            name,
+                        },
+                    ),
+                )
+                if item.check
+                not in {
+                    "parse",
+                    "unreadable",
+                }
+            )
 
         if found:
             print(
@@ -3116,6 +3806,12 @@ def _self_test() -> int:
             failures += 1
 
     failures += _exemption_controls()
+
+    failures += _notebook_controls()
+
+    failures += _download_controls()
+
+    failures += _markdown_width_controls()
 
     (
         EXCLUDED,
@@ -3568,6 +4264,285 @@ def _exemption_controls() -> int:
         else:
             print(
                 "  FAIL  unreadable: a file that cannot be decoded was not reported",
+            )
+
+            failures += 1
+
+    return failures
+
+
+def _notebook_controls() -> int:
+    """
+    Prove that a notebook's code cells are read as Python and its Markdown
+    cells as Markdown, and that its outputs are not read at all.
+    """
+
+    from json import (
+        dumps,
+    )
+    from tempfile import (
+        TemporaryDirectory,
+    )
+
+    failures = 0
+
+    cases = (
+        (
+            "notebooks: a code cell is read as Python",
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "x = len([1])\n",
+                ],
+            },
+            frozenset(
+                {
+                    "calls",
+                },
+            ),
+            True,
+        ),
+        (
+            "notebooks: a Markdown cell is read as Markdown",
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "It doesn't fit.\n",
+                ],
+            },
+            frozenset(
+                {
+                    "markdown",
+                },
+            ),
+            True,
+        ),
+        (
+            "notebooks: an output is never read",
+            {
+                "cell_type": "code",
+                "execution_count": 1,
+                "metadata": {},
+                "outputs": [
+                    {
+                        "name": "stdout",
+                        "output_type": "stream",
+                        "text": [
+                            "x = len([1])\n",
+                            "It doesn't fit.\n",
+                        ],
+                    },
+                ],
+                "source": [
+                    "pass\n",
+                ],
+            },
+            ALL_CHECKS,
+            False,
+        ),
+    )
+
+    for (
+        label,
+        cell,
+        checks,
+        expected,
+    ) in cases:
+        with TemporaryDirectory() as directory:
+            probe = (
+                Path(
+                    directory,
+                )
+                / f"probe{NOTEBOOK_SUFFIX}"
+            )
+
+            probe.write_text(
+                data=dumps(
+                    obj={
+                        "cells": [
+                            cell,
+                        ],
+                        "metadata": {},
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                    },
+                ),
+                encoding="utf-8",
+            )
+
+            reported = bool(
+                _run(
+                    (probe,),
+                    checks,
+                ),
+            )
+
+        if reported == expected:
+            print(
+                f"  ok    {label}",
+            )
+
+        else:
+            print(
+                f"  FAIL  {label}",
+            )
+
+            failures += 1
+
+    return failures
+
+
+def _download_controls() -> int:
+    """
+    Prove that a checked download, a package that happens to be named `wget`,
+    and a health check are not reported as unchecked downloads.
+    """
+
+    from tempfile import (
+        TemporaryDirectory,
+    )
+
+    failures = 0
+
+    cases = (
+        (
+            "downloads: a download checked against the record is not reported",
+            "curl -sSfL -o tool.tar.gz https://example.com/tool.tar.gz\n"
+            "grep tool.tar.gz SHA256SUMS | sha256sum --check --strict\n",
+        ),
+        (
+            "downloads: a package named wget is not a download",
+            "apt-get install --no-install-recommends -y wget\n",
+        ),
+        (
+            "downloads: a health check is not a download",
+            "wget -qO- http://127.0.0.1:8000/health\n",
+        ),
+    )
+
+    for (
+        label,
+        script,
+    ) in cases:
+        with TemporaryDirectory() as directory:
+            probe = (
+                Path(
+                    directory,
+                )
+                / "probe.sh"
+            )
+
+            probe.write_text(
+                data=script,
+                encoding="utf-8",
+            )
+
+            reported = bool(
+                _run(
+                    (probe,),
+                    frozenset(
+                        {
+                            "downloads",
+                        },
+                    ),
+                ),
+            )
+
+        if reported:
+            print(
+                f"  FAIL  {label}",
+            )
+
+            failures += 1
+
+        else:
+            print(
+                f"  ok    {label}",
+            )
+
+    return failures
+
+
+def _markdown_width_controls() -> int:
+    """
+    Prove that a Markdown line is measured as a reader sees it: a code span
+    counts every character it shows, an underscore inside a word counts, and
+    link targets, image sources, and emphasis markers do not.
+    """
+
+    from tempfile import (
+        TemporaryDirectory,
+    )
+
+    failures = 0
+
+    cases = (
+        (
+            "markdown: a code span counts every character it shows, underscores included",
+            "`tools/check_conventions.py`, `tools/check_commit_message.py`, `.taplo.toml`, and the\n",
+            True,
+        ),
+        (
+            "markdown: an underscore inside a word is printed, so it counts",
+            "The service reads APP_DATABASE_URL, APP_BROKER_BOOTSTRAP_SERVERS, and APP_CACHE_URL\n",
+            True,
+        ),
+        (
+            "markdown: a link's target and the emphasis markers do not count",
+            "**Read** [the adoption guide](https://example.com/a/very/long/path/to/the/adoption/guide.md) once, "
+            "*slowly*.\n",
+            False,
+        ),
+        (
+            "markdown: a badge counts as its alternative text, not as the image and link around it",
+            "[![Engineering conventions v1.1.0](https://img.shields.io/badge/engineering%20conventions-v1.1.0-lightgrey)]"
+            "(https://example.com/engineering-conventions/blob/v1.1.0/STANDARD.md)\n",
+            False,
+        ),
+    )
+
+    for (
+        label,
+        text,
+        expected,
+    ) in cases:
+        with TemporaryDirectory() as directory:
+            probe = (
+                Path(
+                    directory,
+                )
+                / f"probe{MARKDOWN_SUFFIX}"
+            )
+
+            probe.write_text(
+                data=text,
+                encoding="utf-8",
+            )
+
+            reported = any(
+                finding.check == "widths"
+                for finding in _run(
+                    (probe,),
+                    frozenset(
+                        {
+                            "markdown",
+                        },
+                    ),
+                )
+            )
+
+        if reported is expected:
+            print(
+                f"  ok    {label}",
+            )
+
+        else:
+            print(
+                f"  FAIL  {label}",
             )
 
             failures += 1

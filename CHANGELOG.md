@@ -11,6 +11,60 @@ with the following meaning.
 
 **Patch**: wording, an example, or an enforcement file with no rule change.
 
+## [1.1.0]
+
+### Added
+
+- §1: a notebook is held to the rules for what it contains, its code cells to
+  the rules for Python and its Markdown cells to the rules for prose; a
+  notebook kept with its outputs was run from the top in one session; and a
+  notebook does not record when its cells ran.
+- §6: an executable a project downloads by URL is pinned to an exact release,
+  its digest is recorded in `SHA256SUMS`, and the download is checked against
+  that record before it is used.
+- §6 also says what that record proves and what it does not, why upstream's
+  own checksum file is no substitute for it, and why a checksum recorded
+  beside vendored source adds nothing.
+- §6 asks that data a program fetches for itself at setup be fetched by a
+  reference that cannot move, such as a commit, where its source offers one,
+  and keeps that data out of the `SHA256SUMS` rule.
+- §26: an adopting project records the commit its vendored files were copied
+  from, and compares every file copied unchanged with that commit.
+- The checker reads a notebook cell by cell and never its outputs, and it
+  reports execution counts out of order and recorded execution times.
+- The checker proves the form of every `SHA256SUMS` line, and it reports a
+  download in a workflow, a Makefile, a Dockerfile, or a shell script that
+  never checks the record, as a candidate.
+
+### Changed
+
+- §9's enforcement note names what the checker reads comments in, Python
+  source and a notebook's code cells, where it said the checker reads only
+  `.py`.
+- This repository and the sandbox run their gates with `uv run --locked`, which
+  fails on a lock that no longer describes the manifest, where `--frozen`, which
+  their notes said did so, does not.
+- The Ruff fragment's note names the standard's `vendor/ruff/ruff.toml`, which
+  stays true wherever the fragment is pasted, and the sandbox marks each
+  project-local Ruff setting where it is added.
+
+### Fixed
+
+- The checker measures a Markdown line as a reader sees it: every character
+  inside a code span counts, underscores included, where it used to drop them
+  and so could pass a line that renders past column 78, and an image counts as
+  its alternative text, where a badge inside a link used to count that link's
+  target too; four self-test controls hold the measure in place.
+
+### Why this is a minor release
+
+Rules were added and existing rules now reach notebooks, so a project that
+conformed to 1.0.1 may see new findings in files the checker did not read
+before, while nothing in the files it did read stops conforming.
+
+The corrected Markdown measure can also report a line the earlier one
+under-counted, which was over the limit all along.
+
 ## [1.0.1]
 
 ### Changed

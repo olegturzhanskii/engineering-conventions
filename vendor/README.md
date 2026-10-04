@@ -12,7 +12,7 @@ vendor/
 ├── taplo/                       TOML formatter configuration
 │   └── taplo.toml                      copied to .taplo.toml at a project root
 └── tools/                       programs, standard library only
-    ├── check_conventions.py            the eleven checks Ruff cannot express
+    ├── check_conventions.py            the fourteen checks Ruff cannot express
     └── check_commit_message.py         the Conventional Commits form
 ```
 
@@ -34,7 +34,7 @@ linted by a template with no line length set.
 | `ruff/ruff.toml` | Import order, modern-Python conversions, `zip(strict=)`, `pathlib` over `os.path`, naming, comprehensions, builtin shadowing, and the one-argument-per-line call form. |
 | `ruff/pyproject-fragment.toml` | The same rules. Use this **or** `ruff.toml`, never both. |
 | `taplo/taplo.toml` | The vertical form of a TOML array, which the formatter collapses by default. |
-| `tools/check_conventions.py` | Import form, signatures, name and argument agreement, vertical formatting, blank-line structure, docstring shape, widths, comment markers, keyword order, `Final`, prose, and Markdown. |
+| `tools/check_conventions.py` | Import form, signatures, name and argument agreement, vertical formatting, blank-line structure, docstring shape, widths, comment markers, keyword order, `Final`, prose, Markdown, notebooks cell by cell, the `SHA256SUMS` record, and downloads that skip it. |
 | `tools/check_commit_message.py` | The Conventional Commits subject, body, and footer. |
 
 Both programs take paths or text, exit non-zero on a finding, and take no

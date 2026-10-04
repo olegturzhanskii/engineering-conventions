@@ -118,7 +118,7 @@ project's own decisions, and the semantics of the language and its libraries.
 **Full**, adding the rules no formatter can express:
 
 4. Copy `vendor/tools/check_conventions.py` into the project's tooling
-   directory.
+   directory, and record the commit it came from.
 5. Add it to the gate, with `--self-test` running first.
 6. Cite the standard's version in the project's contributor documentation.
 
@@ -148,9 +148,9 @@ which is how a run reports green against versions the manifest does not
 accept.
 
 That runs the formatter check, the linter, the type checker, the conventions
-checker against this repository's own Python and Markdown, a drift check that
-the vendored copies still match what `vendor/` publishes, a proof that every
-counterexample is still caught, and the sandbox tests.
+checker against this repository's own Python, Markdown, and Makefiles, a drift
+check that the vendored copies still match what `vendor/` publishes, a proof
+that every counterexample is still caught, and the sandbox tests.
 
 The one exception is `sandbox/counterexamples/`, which breaks the rules on
 purpose.

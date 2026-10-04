@@ -32,7 +32,7 @@ The version reference belongs in the project's contributor documentation, in
 one line:
 
 ```markdown
-This project conforms to the engineering conventions standard, v1.0.1.
+This project conforms to the engineering conventions standard, v1.1.0.
 ```
 
 ## What each file is for
@@ -46,7 +46,7 @@ This project conforms to the engineering conventions standard, v1.0.1.
 | `vendor/ruff/ruff.toml` | **Yes** | The project's linter must run from the project. |
 | `vendor/ruff/pyproject-fragment.toml` | **Alternative** | Use this **or** `ruff.toml`, never both. |
 | `vendor/taplo/taplo.toml` | **Yes** | Copy to `.taplo.toml`, or the formatter undoes every vertical array. |
-| `vendor/tools/check_conventions.py` | **Yes, optional** | Adds the eleven checks Ruff cannot express. |
+| `vendor/tools/check_conventions.py` | **Yes, optional** | Adds the fourteen checks Ruff cannot express. |
 | `vendor/tools/check_commit_message.py` | Optional | Only if commit messages are checked mechanically. |
 | `sandbox/` | No | Reference material: a small conforming project to read. |
 
@@ -112,7 +112,7 @@ format-check:
 
 ## The full path
 
-**4. Vendor the checker.**
+**4. Vendor the checker, and record the commit you copied it from.**
 
 ```sh
 cp vendor/tools/check_conventions.py /path/to/project/tools/
@@ -145,6 +145,10 @@ conventions:
 The order matters.
 
 A gate that runs the scan without the control can pass because the scan broke.
+
+The checker also reads notebooks, `SHA256SUMS`, and the workflows, Makefiles,
+Dockerfiles, and shell scripts that may download a tool, so name the paths
+that hold them as well.
 
 **7. Name the version** in the project's contributor documentation.
 
@@ -181,12 +185,26 @@ Excluding a directory from style enforcement is not a reason to stop checking
 it for errors; a type checker found a real defect in the checker itself this
 way.
 
-**Prove they still match** whenever the standard is upgraded:
+**Record the commit they came from, and prove they still match it.**
+
+A version names a release for a reader, and a commit is what a comparison can
+rely on, because a tag can be moved and a commit cannot.
 
 ```sh
-diff -u path/to/standard/vendor/tools/check_conventions.py \
-    tools/check_conventions.py
+git -C path/to/standard show COMMIT:vendor/tools/check_conventions.py \
+    | diff -u - tools/check_conventions.py
 ```
+
+Comparing with the commit rather than with a working copy of the standard
+keeps uncommitted or later changes there out of the answer.
+
+Run the comparison whenever the copies are refreshed, and before a release.
+
+**Keep the comparison out of the gate.**
+
+It needs the standard's repository, and the gate must keep working when that
+repository is not reachable; between refreshes, the project's own history is
+what shows that the copies have not changed.
 
 ## Layering project configuration
 
@@ -382,7 +400,8 @@ review.
 The standard is versioned; a project moves deliberately.
 
 1. Read `CHANGELOG.md` from the version the project names to the new one.
-2. Re-vendor `vendor/`, keeping the project-local additions.
+2. Re-vendor `vendor/`, keeping the project-local additions, and record the
+   commit you copied from.
 3. Run the gate, and treat new findings as an audit rather than a cleanup —
    `docs/workflow.md` covers the difference.
 4. Update the version line in the project's contributor documentation.
