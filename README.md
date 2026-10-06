@@ -158,6 +158,9 @@ purpose.
 `STANDARD.md` §1 explains why that is legitimate and how such material must be
 marked.
 
+Continuous integration runs the same gate on every push to `main` and every pull
+request, on the lowest Python `requires-python` allows and on the newest.
+
 ## License
 
 Apache-2.0.

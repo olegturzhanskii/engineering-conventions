@@ -40,7 +40,7 @@ typecheck: ## Run the type checker
 conventions: ## Run the checker on this repository, positive control first
 	$(RUN) python3 vendor/tools/check_conventions.py --self-test
 	$(RUN) python3 vendor/tools/check_conventions.py \
-		STANDARD.md README.md CHANGELOG.md docs vendor Makefile \
+		STANDARD.md README.md CHANGELOG.md docs vendor Makefile .github/workflows \
 		sandbox/README.md sandbox/counterexamples/README.md sandbox/src sandbox/tests sandbox/Makefile
 
 external: ## Audit another project from here: make external P=/path D="src tests"
