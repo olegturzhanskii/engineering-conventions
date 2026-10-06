@@ -118,8 +118,9 @@ format-check:
 cp vendor/tools/check_conventions.py /path/to/project/tools/
 ```
 
-It is standard library only, takes paths, exits non-zero on a finding, and
-does nothing else.
+It is standard library only, runs on the Python versions that `requires-python`
+in this repository's `pyproject.toml` allows, takes paths, exits non-zero on a
+finding, and does nothing else.
 
 It has no dependency on this repository once copied.
 
@@ -231,7 +232,7 @@ upward from the working directory.
 ```toml
 [tool.check-conventions]
 # NOTE:
-# Modules this project uses as a namespace, each traceable to one of the four semantic import exceptions the standard
+# Modules this project uses as a namespace, each traceable to one of the three semantic import exceptions the standard
 # names.
 #
 # State the reason here.
