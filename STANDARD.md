@@ -1368,9 +1368,11 @@ contract allows one: a slice, a `memoryview`, an iterator consumed once.
 independent of the source, because materializing is then the contract rather
 than an expense.
 
-*(Review.*
+*(Candidate* for a set or list display handed to `frozenset` or `tuple`, which the
+checker reports and a person judges.
 
-Whether mutation is required is a question about the algorithm.*)*
+*Review* otherwise: whether mutation is required is a question about the
+algorithm.*)*
 
 ---
 
@@ -1452,6 +1454,65 @@ API.
 
 Mixin enums leak: once a member is a string, every string operation on it
 silently succeeds.
+
+**SHOULD** let `auto()` produce a member's value.
+
+A value spelled out by hand is one more thing to keep in step with the name,
+and it hides the policy that produces the rest.
+
+The default policy is the base's: `Enum` and `IntEnum` give the first member
+`start`, which the class syntax always passes as 1, and each later member one
+more than the largest value so far, and `StrEnum` gives each member its own name
+lowercased.
+
+**SHOULD** override `_generate_next_value_` where that policy does not fit, and
+state the policy once, in the enum or in a base the enums share, rather than
+at every member:
+
+```python
+class Format(
+    StrEnum,
+):
+    @staticmethod
+    @override
+    def _generate_next_value_(
+        name: str,
+        start: int,
+        count: int,
+        last_values: list[str],
+    ) -> str:
+        return name.lower().replace(
+            "_",
+            "-",
+        )
+
+    PLAIN_TEXT = auto()
+
+    MARKDOWN = auto()
+```
+
+The members are `plain-text` and `markdown`, where the default would have given
+`plain_text`; `start` and `count`, the value the class syntax passes and the number
+of members already defined, are what the base's numbering reads, and a policy
+that derives the value from the name ignores them.
+
+The signature is the base's, and the method is a `@staticmethod` written before
+the first member, because the language reads it when it assigns the first
+`auto()`.
+
+**Spell a value out only where it is a contract the name does not express**: a
+value an external system, a wire format, or a stored row reads, and which must
+stay what it is when the member is renamed.
+
+**A generated value can be such a contract too.**
+
+Once a `StrEnum` member's lowercased name is written to a column or a message,
+renaming the member changes stored data, so the rename is a migration rather
+than a refactor, whichever way the value was produced.
+
+The line runs between the enum's inside and its outside: how a value is
+produced is an implementation detail of the enum, and which values exist is
+part of its contract wherever they leave the process.
 
 **SHOULD** name the argument when constructing from a value:
 
@@ -1914,7 +1975,7 @@ The one-sentence rule does not apply to it and it takes no terminal period.
 
 ## 27. Version
 
-This is the standard at **v1.1.1**.
+This is the standard at **v1.2.0**.
 
 Changes are recorded in `CHANGELOG.md`, and a project states the version it
 conforms to so that a reviewer can tell a violation from a version gap.

@@ -114,7 +114,7 @@ from typing import (
 #
 # A vendored copy states which standard it came from, so a project can report conformance and a reviewer can tell a
 # stale copy from a local change.
-STANDARD_VERSION: Final = "1.1.1"
+STANDARD_VERSION: Final = "1.2.0"
 
 # NOTE:
 # Column boundaries from the standard's width section.
@@ -497,6 +497,16 @@ TIMING_KEYS: Final = frozenset(
     (
         "ExecuteTime",
         "execution",
+    ),
+)
+
+# NOTE:
+# The two constructors that copy a display handed to them, which §15 asks to be given a tuple rather than a set or a
+# list built only to be copied.
+COPYING_CONSTRUCTORS: Final = frozenset(
+    (
+        "frozenset",
+        "tuple",
     ),
 )
 
@@ -2393,6 +2403,79 @@ def _check_final(
     )
 
 
+def _check_containers(
+    path: Path,
+    tree: AST,
+    source: str,
+    /,
+) -> tuple[Finding, ...]:
+    """
+    Reports a set or list display handed to `frozenset` or `tuple`, which
+    builds a container only to copy it.
+
+    The finding is a candidate, because §15 states a default rather than a
+    requirement, and the display may be there for a reason recorded at the
+    site.
+    """
+
+    out: list[Finding] = []
+
+    for node in walk(
+        node=tree,
+    ):
+        if not isinstance(
+            node,
+            Call,
+        ):
+            continue
+
+        callee = getattr(
+            node.func,
+            "id",
+            None,
+        )
+
+        if (
+            callee not in COPYING_CONSTRUCTORS
+            or len(
+                node.args,
+            )
+            != 1
+            or node.keywords
+        ):
+            continue
+
+        argument = node.args[0]
+
+        if not isinstance(
+            argument,
+            Set | List,
+        ):
+            continue
+
+        shown = (
+            "set"
+            if isinstance(
+                argument,
+                Set,
+            )
+            else "list"
+        )
+
+        out.append(
+            _candidate(
+                path,
+                node.lineno,
+                "containers",
+                f"a {shown} display is handed to `{callee}`, which copies it; a tuple is one container less (§15)",
+            ),
+        )
+
+    return tuple(
+        out,
+    )
+
+
 def _check_markdown(
     path: Path,
     source: str,
@@ -3208,6 +3291,7 @@ CHECKS: Final = MappingProxyType(
         "prose": _check_prose,
         "kwargs": _check_kwargs,
         "final": _check_final,
+        "containers": _check_containers,
     },
 )
 
@@ -3633,6 +3717,10 @@ CONTROLS: Final = MappingProxyType(
         "final/rebound": (
             "final",
             "from typing import Final\n\nX: Final = 1\n\n\ndef f():\n    global X\n\n    X = 2\n",
+        ),
+        "containers/set-display": (
+            "containers",
+            "x = frozenset(\n    {\n        1,\n    },\n)\n",
         ),
         "markdown/width": (
             "markdown",

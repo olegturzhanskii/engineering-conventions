@@ -11,19 +11,39 @@ with the following meaning.
 
 **Patch**: wording, an example, or an enforcement file with no rule change.
 
+## [1.2.0]
+
+### Added
+
+- The checker reports a set or list display handed to `frozenset` or `tuple` as a
+  candidate, because §15 prefers the representation that allocates less and
+  such a display is built only to be copied; §15's enforcement note says so,
+  and a control holds the check in place.
+- §18 prefers `auto()` for a member's value, asks that a generation policy which
+  differs from the default be stated once by overriding `_generate_next_value_`,
+  and says where a value is spelled out instead: where it is a contract the
+  name does not express, with the note that a generated value written to a
+  column or a message is such a contract too.
+
+### Why this is a minor release
+
+An existing default became checkable, as a candidate, and §18 gained two
+defaults: no rule tightened, a project that conformed to 1.1.1 still conforms,
+and a project that re-vendors the checker may see new candidates in files it
+already read, each of which a person judges.
+
 ## [1.1.1]
 
 ### Changed
 
-- The preamble names the people and the models who make changes to a
-  project, and the tools that check them, as what the standard is written
-  for, where it named a person and a tool; §1 says a reader rather than a
-  person where it protects demonstrative material, because a model reads the
-  document too.
+- The preamble names the people and the models who make changes to a project,
+  and the tools that check them, as what the standard is written for, where it
+  named a person and a tool; §1 says a reader rather than a person where it
+  protects demonstrative material, because a model reads the document too.
 - §19's two `_REQUIRED` examples write `Final` without a parameter, as the
   section's own test asks where the right-hand side already shows the type,
-  and the `frozenset` one is built from a tuple rather than a set literal,
-  with a sentence saying why: a literal built only to be copied is one more
+  and the `frozenset` one is built from a tuple rather than a set literal, with
+  a sentence saying why: a literal built only to be copied is one more
   container, and a mutable one, which §15 asks a reader to avoid.
 - The checker builds its own constant sets from tuples rather than set
   literals, for the same reason, with no change to what it checks or reports.

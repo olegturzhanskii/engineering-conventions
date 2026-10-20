@@ -32,7 +32,7 @@ The version reference belongs in the project's contributor documentation, in
 one line:
 
 ```markdown
-This project conforms to the engineering conventions standard, v1.1.1.
+This project conforms to the engineering conventions standard, v1.2.0.
 ```
 
 ## What each file is for
@@ -46,7 +46,7 @@ This project conforms to the engineering conventions standard, v1.1.1.
 | `vendor/ruff/ruff.toml` | **Yes** | The project's linter must run from the project. |
 | `vendor/ruff/pyproject-fragment.toml` | **Alternative** | Use this **or** `ruff.toml`, never both. |
 | `vendor/taplo/taplo.toml` | **Yes** | Copy to `.taplo.toml`, or the formatter undoes every vertical array. |
-| `vendor/tools/check_conventions.py` | **Yes, optional** | Adds the fourteen checks Ruff cannot express. |
+| `vendor/tools/check_conventions.py` | **Yes, optional** | Adds the fifteen checks Ruff cannot express. |
 | `vendor/tools/check_commit_message.py` | Optional | Only if commit messages are checked mechanically. |
 | `sandbox/` | No | Reference material: a small conforming project to read. |
 
