@@ -103,16 +103,16 @@ def _row(
 
     return (
         str(
-            loan.id,
+            object=loan.id,
         ),
         str(
-            loan.book_id,
+            object=loan.book_id,
         ),
         str(
-            loan.patron_id,
+            object=loan.patron_id,
         ),
         str(
-            loan.status,
+            object=loan.status,
         ),
         returned_at.isoformat() if returned_at is not None else "",
     )
