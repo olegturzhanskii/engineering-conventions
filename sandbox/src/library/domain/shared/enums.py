@@ -9,6 +9,7 @@ from enum import (
     StrEnum,
 )
 from typing import (
+    final,
     override,
 )
 
@@ -34,9 +35,14 @@ class UnorderedStrEnum(
     # here rather than inherit.
     #
     # `/` is written on each of them because the interpreter reaches a comparison through a slot and never by name:
-    # the boundary is positional whether or not it is declared, and declaring it keeps every signature in this
-    # package readable under one convention.
+    # the boundary is positional whether or not it is declared, and declaring it keeps every signature in this package
+    # readable under one convention.
+    #
+    # `@final` is written on each as well, because refusing an order is this base's contract rather than a default a
+    # label set may revisit: a child that defined `__lt__` would restore the alphabetical answer this class exists to
+    # deny, and the type checker reports such a child.
     @override
+    @final
     def __lt__(
         self,
         other: object,
@@ -45,6 +51,7 @@ class UnorderedStrEnum(
         return NotImplemented
 
     @override
+    @final
     def __le__(
         self,
         other: object,
@@ -53,6 +60,7 @@ class UnorderedStrEnum(
         return NotImplemented
 
     @override
+    @final
     def __gt__(
         self,
         other: object,
@@ -61,6 +69,7 @@ class UnorderedStrEnum(
         return NotImplemented
 
     @override
+    @final
     def __ge__(
         self,
         other: object,
