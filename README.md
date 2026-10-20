@@ -3,6 +3,10 @@
 A small, durable engineering standard for Python projects, and the minimum
 tooling that makes it checkable.
 
+[![ci](https://github.com/olegturzhanskii/engineering-conventions/actions/workflows/ci.yml/badge.svg)](https://github.com/olegturzhanskii/engineering-conventions/actions/workflows/ci.yml)
+[![Standard](https://img.shields.io/github/v/tag/olegturzhanskii/engineering-conventions?sort=semver&label=standard&color=informational)](CHANGELOG.md)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-informational)](LICENSE)
+
 It is built to travel.
 
 Nothing in it names a project, a domain, a company, or a machine.
@@ -128,7 +132,8 @@ and how to record a project-specific exception.
 
 ## Reading it for the first time
 
-`STANDARD.md` top to bottom takes about fifteen minutes.
+`STANDARD.md` runs to about ten thousand words, so reading it top to bottom
+takes the better part of an hour.
 
 Section 2 is the one to read even if nothing else is: it is about when a rule
 is allowed to exist at all, and its absence is the most expensive gap a
