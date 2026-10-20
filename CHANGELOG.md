@@ -11,6 +11,36 @@ with the following meaning.
 
 **Patch**: wording, an example, or an enforcement file with no rule change.
 
+## [1.1.1]
+
+### Changed
+
+- The preamble names the people and the models who make changes to a
+  project, and the tools that check them, as what the standard is written
+  for, where it named a person and a tool; §1 says a reader rather than a
+  person where it protects demonstrative material, because a model reads the
+  document too.
+- §19's two `_REQUIRED` examples write `Final` without a parameter, as the
+  section's own test asks where the right-hand side already shows the type,
+  and the `frozenset` one is built from a tuple rather than a set literal,
+  with a sentence saying why: a literal built only to be copied is one more
+  container, and a mutable one, which §15 asks a reader to avoid.
+- The checker builds its own constant sets from tuples rather than set
+  literals, for the same reason, with no change to what it checks or reports.
+
+### Fixed
+
+- The preamble and *Enforcement classes* said that every rule carries an
+  enforcement class, which the text never did: 22 rules state one, and the
+  rest are mapped to the tools by `vendor/README.md`, so the two passages now
+  say that, and a rule with no class stated is read as review alone unless
+  that file names it.
+
+### Why this is a patch
+
+Wording, two examples, and an enforcement file with no rule change: nothing
+became checkable, and a project that conformed to 1.1.0 still conforms.
+
 ## [1.1.0]
 
 ### Added

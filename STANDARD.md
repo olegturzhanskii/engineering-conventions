@@ -2,9 +2,11 @@
 
 A portable standard for Python projects.
 
-It is written to be read once by a person and applied repeatedly by a person
-or a tool, so every rule is stated as a rule and every rule says how far a
-machine can check it.
+It is written for the people and the models who make changes to a project
+and for the tools that check them, so every rule is stated as a rule, and
+the document says how far a machine can check it: a rule a tool reaches, or
+stops short of, states its class, and `vendor/README.md` lists what each tool
+checks.
 
 ## How to read this document
 
@@ -22,8 +24,8 @@ what to weigh and a person decides.
 
 ### Enforcement classes
 
-Every rule carries one of four, and the checker's output preserves the
-distinction:
+There are four, a rule states one where a tool reaches it or stops short of
+it, and the checker's output preserves the distinction:
 
 | Class | Meaning |
 | --- | --- |
@@ -34,6 +36,9 @@ distinction:
 
 A checker that reports a **Candidate** finding as a violation is claiming a
 guarantee it does not have, and that is worse than not checking.
+
+A rule that states no class is checked by review alone, unless
+`vendor/README.md` names it among what a tool checks.
 
 ## How this document is ordered
 
@@ -106,7 +111,7 @@ that violates a rule deliberately, and correcting it destroys the example.
 
 **MUST.**
 
-Mark demonstrative material so that neither a person nor a tool mistakes it
+Mark demonstrative material so that neither a reader nor a tool mistakes it
 for an oversight, by one of two mechanisms in order of preference:
 
 1. Keep it out of the scanned tree, inside a fenced block in prose, where no
@@ -1530,7 +1535,7 @@ Half a guarantee: the name cannot be rebound, and the set it names can still
 be added to.
 
 ```python
-_REQUIRED: Final[set[str]] = {
+_REQUIRED: Final = {
     "a",
     "b",
 }
@@ -1539,13 +1544,20 @@ _REQUIRED: Final[set[str]] = {
 The whole one:
 
 ```python
-_REQUIRED: Final[frozenset[str]] = frozenset(
-    {
+_REQUIRED: Final = frozenset(
+    (
         "a",
         "b",
-    },
+    ),
 )
 ```
+
+The input is a tuple rather than a set literal, because a literal built only
+to be copied is one more container, and a mutable one, for the same result.
+
+`Final` carries no parameter in either example, because the right-hand side
+already shows what the name holds, which is the test the end of this section
+states.
 
 **SHOULD** choose the immutable representation where the value is semantically
 read-only: `frozenset` for a set, `tuple` for a sequence, `MappingProxyType` for a
@@ -1902,7 +1914,7 @@ The one-sentence rule does not apply to it and it takes no terminal period.
 
 ## 27. Version
 
-This is the standard at **v1.1.0**.
+This is the standard at **v1.1.1**.
 
 Changes are recorded in `CHANGELOG.md`, and a project states the version it
 conforms to so that a reviewer can tell a violation from a version gap.
